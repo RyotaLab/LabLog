@@ -5,11 +5,10 @@ import time
 
 
 #Variable Definition
-alpha = 0.1
-lam = 100
+lam = 50
 gamma = 0.3
 tau = 0.99/8 #0.99 / 8
-mu = 5.0
+mu = 5
 width = 100
 height = 100
 
@@ -88,47 +87,31 @@ def trans_C(u):
     return -v1, -v2, -v3
 
 
-def proxF(x, y):
+def proxF(x, y, alpha):
     return (x + alpha * y) / (1 + alpha)
 
 # v↕︎ or v↔︎ or v.
-def proxG(v):
-    proxGv = np.zeros((height, width, 2))
-    proxGv[:,:,0] = v[:,:,0] - (v[:,:,0] / np.maximum(np.abs(v[:,:,0] / (alpha * lam)), 1))
-    proxGv[:,:,1] = v[:,:,1] - (v[:,:,1] / np.maximum(np.abs(v[:,:,1] / (alpha * lam)), 1))
+def proxG(v, alpha):
+    w = np.sqrt(v[:,:,0]**2 + v[:,:,1]**2)
+    w = np.reshape(w, (100, 100, 1))
+    proxGv = v - (v / np.maximum(w / (alpha * lam), 1))
+
     return proxGv
 
 #用意した画像
-image_file = "/Users/tanabou/授業系/seminar/image_denoising/seminar_to_github/noised_circle.png"
+image_file = "/Users/tanabou/ClassesEtc/seminar/image_denoising/noised_circle.png"
 y = np.array(Image.open(image_file))
 
-# mu_list = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 5.0]
-# mu_diff_list = [[], [], [], [], [], [], []]
-
-# #Noisy image definition y[height, width]
-# y = np.zeros((height, width), dtype=int)
-# for i in range(height):
-#     for k in range(width):
-#         if i + k < (height + width) / 2:
-#             y[i][k] = 256
-#         tmp = np.random.randint(1, 100)
-#         if tmp < 30:
-#             y[i][k] = np.random.randint(0, 256)
+# a = np.linspace(-0.5, 0.5, height)
+# b = np.linspace(-0.5, 0.5, width)
+# a,b = np.meshgrid(a,b)
+# y = np.sqrt(a**2 + b**2)
 
 x = np.zeros((height, width))
 u = np.zeros((height, width, 2))
 v1 = np.zeros((height, width, 2))
 v2 = np.zeros((height, width, 2))
 v3 = np.zeros((height, width, 2))
-
-for n1 in range(height):
-    for n2 in range(width):
-        x[n1, n2] = np.random.randint(1, 10)
-        v1[n1, n2] = np.random.randint(1, 10)
-        v2[n1, n2] = np.random.randint(1, 10)
-        v3[n1, n2] = np.random.randint(1, 10)
-        for i in range(2):
-            u[n1, n2, i] = np.random.randint(1, 10)
 
 diff = 10
 count = 0
@@ -137,18 +120,17 @@ start = time.time()
 while True: #diff > 1e-2:
     old_u = u
     count +=1
-    x = proxF(x - tau*trans_D(D(x) + C(v1, v2, v3) + mu*u), y)
+    x = proxF(x - tau*trans_D(D(x) + C(v1, v2, v3) + mu*u), y, tau*mu)
 
     t1, t2, t3 = trans_C(D(x) + C(v1, v2, v3) + mu*u)
-    v1 = proxG(v1 - gamma*t1)
-    v2 = proxG(v2 - gamma*t2)
-    v3 = proxG(v3 - gamma*t3)
+    v1 = proxG(v1 - gamma*t1, gamma*mu)
+    v2 = proxG(v2 - gamma*t2, gamma*mu)
+    v3 = proxG(v3 - gamma*t3, gamma*mu)
 
     u = u + (D(x) + C(v1, v2, v3)) / mu
 
     diff = np.sum(np.abs(old_u - u))
-    print(count)
-    if count >= 1000:
+    if count >= 3000:
         break
 
 end = time.time()
@@ -159,20 +141,12 @@ print("np.sum(x - y) =",np.sum(x - y))
 print("count =", count)
 
 
+plt.imshow(x)
+plt.colorbar()
+plt.show()
 
-
-
-#グラフ表示ーーーーー
-# plt.subplot(1, 2, 1)
-# plt.imshow(y, cmap='viridis')  # ヒートマップの色を指定
-# plt.colorbar()                    # カラーバーを表示
-# plt.title("y")
-
-# plt.subplot(1, 2, 2)
-# plt.imshow(x, cmap='viridis')  # ヒートマップの色を指定
-# plt.colorbar()                    # カラーバーを表示
-# plt.title("x")
-# plt.tight_layout()
+# ax = plt.subplot(projection='3d')
+# ax.plot_surface(a, b, x)
 # plt.show()
 
 # 保存コマンドーーーー
